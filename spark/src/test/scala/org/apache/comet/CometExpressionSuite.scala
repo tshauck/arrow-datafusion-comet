@@ -821,10 +821,11 @@ class CometExpressionSuite extends CometTestBase with AdaptiveSparkPlanHelper {
       withSQLConf("parquet.enable.dictionary" -> dictionary.toString) {
         val table = "test"
         withTable(table) {
-          sql(s"create table $table(col varchar(20)) using parquet")
+          sql(s"create table $table(col String) using parquet")
           sql(s"insert into $table values('537061726B')")
 
-          checkSparkAnswerAndOperator(s"SELECT try_to_binary('537', 'hex') FROM $table")
+          checkSparkAnswerAndOperator(s"SELECT try_to_binary(col, 'hex') FROM $table")
+          checkSparkAnswerAndOperator(s"SELECT try_to_binary('537061726B', 'hex') FROM $table")
         }
       }
     }

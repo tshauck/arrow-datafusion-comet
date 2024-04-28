@@ -89,7 +89,7 @@ pub fn create_comet_physical_fun(
             make_comet_scalar_udf!("ceil", spark_ceil, data_type)
         }
         "try_to_binary" => {
-            make_comet_scalar_udf!("try_to_binary", try_to_binary, data_type)
+            make_comet_scalar_udf!("try_to_binary", spark_try_to_binary, data_type)
         }
         "floor" => {
             make_comet_scalar_udf!("floor", spark_floor, data_type)
@@ -235,7 +235,7 @@ impl FromStr for SparkFormat {
 }
 
 /// `try_to_binary` function that simulates Spark `try_to_binary` expression
-pub fn try_to_binary(
+pub fn spark_try_to_binary(
     args: &[ColumnarValue],
     data_type: &DataType,
 ) -> Result<ColumnarValue, DataFusionError> {
@@ -264,7 +264,21 @@ pub fn try_to_binary(
 
                 Ok(ColumnarValue::Scalar(ScalarValue::Binary(Some(encoded))))
             }
-            _ => internal_err!("Value argument must be a scalar string"),
+            ColumnarValue::Array(array) => {
+                let array = array.as_any().downcast_ref::<StringArray>().unwrap();
+                let mut builder = arrow::array::BinaryBuilder::new();
+                for i in 0..array.len() {
+                    let string = array.value(i);
+                    let bytes = string.as_bytes();
+                    let encoded: Vec<u8> = bytes
+                        .iter()
+                        .flat_map(|byte| format!("{:02x}", byte).into_bytes())
+                        .collect();
+                    builder.append_value(&encoded);
+                }
+                Ok(ColumnarValue::Array(Arc::new(builder.finish())))
+            }
+            _ => internal_err!("Unsupported data type for try_to_binary"),
         },
     }
 }
