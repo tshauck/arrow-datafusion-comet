@@ -816,6 +816,20 @@ class CometExpressionSuite extends CometTestBase with AdaptiveSparkPlanHelper {
     }
   }
 
+  test("try_to_binary") {
+    Seq(false, true).foreach { dictionary =>
+      withSQLConf("parquet.enable.dictionary" -> dictionary.toString) {
+        val table = "test"
+        withTable(table) {
+          sql(s"create table $table(col varchar(20)) using parquet")
+          sql(s"insert into $table values('537061726B')")
+
+          checkSparkAnswerAndOperator(s"SELECT try_to_binary(col, 'hex') FROM $table")
+        }
+      }
+    }
+  }
+
   test("ceil and floor") {
     Seq("true", "false").foreach { dictionary =>
       withSQLConf("parquet.enable.dictionary" -> dictionary) {
@@ -829,6 +843,7 @@ class CometExpressionSuite extends CometTestBase with AdaptiveSparkPlanHelper {
           checkSparkAnswerAndOperator(
             "SELECT floor(0.0), floor(-0.0), floor(-0.5), floor(0.5), " +
               "floor(-1.2), floor(1.2) FROM tbl")
+          checkSparkAnswerAndOperator("SELECT ceil(0.0, -1)")
         }
         withParquetTable(
           (-5 until 5).map(i => (i.toLong, i.toLong)),
