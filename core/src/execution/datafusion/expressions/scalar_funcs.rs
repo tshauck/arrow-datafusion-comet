@@ -88,6 +88,9 @@ pub fn create_comet_physical_fun(
         "ceil" => {
             make_comet_scalar_udf!("ceil", spark_ceil, data_type)
         }
+        "try_to_binary" => {
+            make_comet_scalar_udf!("try_to_binary", try_to_binary, data_type)
+        }
         "floor" => {
             make_comet_scalar_udf!("floor", spark_floor, data_type)
         }
@@ -210,6 +213,59 @@ impl ScalarUDFImpl for CometScalarFunction {
 
     fn invoke(&self, args: &[ColumnarValue]) -> DataFusionResult<ColumnarValue> {
         (self.func)(args)
+    }
+}
+
+enum SparkFormat {
+    Hex,
+}
+
+impl FromStr for SparkFormat {
+    type Err = DataFusionError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "hex" => Ok(SparkFormat::Hex),
+            _ => Err(DataFusionError::Internal(format!(
+                "Unsupported format: {}",
+                s
+            ))),
+        }
+    }
+}
+
+/// `try_to_binary` function that simulates Spark `try_to_binary` expression
+pub fn try_to_binary(
+    args: &[ColumnarValue],
+    data_type: &DataType,
+) -> Result<ColumnarValue, DataFusionError> {
+    if args.len() != 2 {
+        return internal_err!("try_to_binary requires two arguments");
+    }
+
+    let value = &args[0];
+    let format = &args[1];
+
+    let format = match format {
+        ColumnarValue::Scalar(ScalarValue::Utf8(Some(format))) => {
+            SparkFormat::from_str(format.as_str())?
+        }
+        _ => return internal_err!("Format argument must be a scalar string"),
+    };
+
+    match format {
+        SparkFormat::Hex => match value {
+            ColumnarValue::Scalar(ScalarValue::Utf8(Some(hex))) => {
+                let bytes = hex.as_bytes();
+                let encoded: Vec<u8> = bytes
+                    .iter()
+                    .flat_map(|byte| format!("{:02x}", byte).into_bytes())
+                    .collect();
+
+                Ok(ColumnarValue::Scalar(ScalarValue::Binary(Some(encoded))))
+            }
+            _ => internal_err!("Value argument must be a scalar string"),
+        },
     }
 }
 

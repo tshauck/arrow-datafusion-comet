@@ -1409,6 +1409,11 @@ object QueryPlanSerde extends Logging with ShimQueryPlanSerde {
               optExprWithInfo(optExpr, expr, child)
           }
 
+        case e @ TryToBinary(child, format, replacement) =>
+          val childExpr = exprToProtoInternal(child, inputs)
+          val optExpr = scalarExprToProtoWithReturnType("try_to_binary", e.dataType, childExpr)
+          optExprWithInfo(optExpr, expr, child)
+
         case Cos(child) =>
           val childExpr = exprToProtoInternal(child, inputs)
           val optExpr = scalarExprToProto("cos", childExpr)
