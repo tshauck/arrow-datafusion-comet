@@ -679,18 +679,9 @@ class CometSparkSessionExtensions
           withInfo(s, Seq(msg1, msg2, msg3).flatten.mkString(","))
           s
 
-        // case rdd: RDDScanExec =>
         case rdd: RDDScanExec =>
           // scalastyle:off
-          val schema = plan.schema
-          println(s"Schema: $schema")
-          // println(
-          //   s"Unsupported op node name: ${rdd.nodeName}, Full class path: ${rdd.getClass.getName}")
-          // println(s"RDD Info: ${rdd.rdd.toDebugString}")
-          // println(s"Output: ${rdd.output}, ${rdd.output.length}")
-          // println(s"input rdd: ${rdd.inputRDD.name}")
-          // println(s"output partitioning: ${rdd.outputPartitioning
-          // println(s"Empty RDD: ${rdd.rdd.isEmpty()}")
+          println(s"RDDScanExec: ${rdd.nodeName}")
           // scalastyle:on
           CometPlaceholderRowExec(plan, rdd)
 

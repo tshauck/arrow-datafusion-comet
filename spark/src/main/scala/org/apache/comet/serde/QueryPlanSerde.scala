@@ -2287,14 +2287,6 @@ object QueryPlanSerde extends Logging with ShimQueryPlanSerde with CometExprShim
           None
         }
 
-      // case RDDScanExec(output, rdd, name, outputPartitioning, outputOrdering) =>
-      //   val rddScanBuilder = OperatorOuterClass.Scan.newBuilder()
-      //   rddScanBuilder.setRddName(name)
-      //   rddScanBuilder.setNumPartitions(rdd.getNumPartitions)
-      //   rddScanBuilder.setPartitioning(serializePartitioning(outputPartitioning))
-      //   rddScanBuilder.setOrdering(serializeOrdering(outputOrdering))
-      //   Some(result.setRddScan(rddScanBuilder).build())
-
       case FilterExec(condition, child) if isCometOperatorEnabled(op.conf, "filter") =>
         val cond = exprToProto(condition, child.output)
 

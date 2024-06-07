@@ -26,20 +26,13 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.RDDScanExec
 import org.apache.spark.sql.types.StructType
 
-case class CometPlaceholderRowExec(originalPlan: SparkPlan, child: SparkPlan)
+case class CometPlaceholderRowExec(originalPlan: SparkPlan, wrapped: RDDScanExec)
     extends LeafExecNode
     with CometPlan {
 
-  override def output: Seq[Attribute] = child.output
+  override def output: Seq[Attribute] = wrapped.output
 
   override protected def doExecute(): RDD[InternalRow] = {
-    val rdd = child.execute()
-    rdd.mapPartitionsInternal { iter =>
-      new Iterator[InternalRow] {
-        override def hasNext: Boolean = iter.hasNext
-        override def next(): InternalRow = iter.next()
-      }
-    }
+    wrapped.execute()
   }
-
 }
