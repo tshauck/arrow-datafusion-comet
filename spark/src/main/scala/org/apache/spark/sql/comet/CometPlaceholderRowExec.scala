@@ -24,7 +24,7 @@ import org.apache.spark.sql.catalyst._
 import org.apache.spark.sql.catalyst.expressions.{Attribute, DynamicPruningExpression, Expression, Literal}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.RDDScanExec
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 case class CometPlaceholderRowExec(originalPlan: SparkPlan, wrapped: RDDScanExec)
     extends LeafExecNode
@@ -32,7 +32,17 @@ case class CometPlaceholderRowExec(originalPlan: SparkPlan, wrapped: RDDScanExec
 
   override def output: Seq[Attribute] = wrapped.output
 
-  override protected def doExecute(): RDD[InternalRow] = {
-    wrapped.execute()
+  override def supportsColumnar: Boolean = true
+
+  override def doExecute(): RDD[InternalRow] = {
+    ColumnarToRowExec(this).doExecute()
+  }
+
+  override def executeCollect(): Array[InternalRow] = {
+    ColumnarToRowExec(this).executeCollect()
+  }
+
+  protected override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    wrapped.executeColumnar()
   }
 }

@@ -2606,6 +2606,9 @@ object QueryPlanSerde extends Logging with ShimQueryPlanSerde with CometExprShim
 
       case op if isCometSink(op) && op.output.forall(a => supportedDataType(a.dataType)) =>
         // These operators are source of Comet native execution chain
+        // scalastyle:off
+        println(s"CometSinkPlaceHolder: ${op.nodeName}")
+        // scalastyle:on
         val scanBuilder = OperatorOuterClass.Scan.newBuilder()
 
         val scanTypes = op.output.flatten { attr =>
@@ -2617,6 +2620,10 @@ object QueryPlanSerde extends Logging with ShimQueryPlanSerde with CometExprShim
 
           // Sink operators don't have children
           result.clearChildren()
+
+          // scalastyle:off
+          println(s"result setScan: ${scanBuilder.build()}")
+          // scalastyle:on
 
           Some(result.setScan(scanBuilder).build())
         } else {

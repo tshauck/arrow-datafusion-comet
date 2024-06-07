@@ -234,7 +234,15 @@ abstract class CometNativeExec extends CometExec {
         val sparkPlans = ArrayBuffer.empty[SparkPlan]
         val inputs = ArrayBuffer.empty[RDD[ColumnarBatch]]
 
+        // scalastyle:off
+        println(s"sparkPlans: $this")
+        // scalastyle:on
+
         foreachUntilCometInput(this)(sparkPlans += _)
+
+        // scalastyle:off
+        println(s"sparkPlans: $sparkPlans")
+        // scalastyle:on
 
         // Find the first non broadcast plan
         val firstNonBroadcastPlan = sparkPlans.zipWithIndex.find {
@@ -313,12 +321,15 @@ abstract class CometNativeExec extends CometExec {
    *   the function to apply to each Comet physical operator
    */
   def foreachUntilCometInput(plan: SparkPlan)(func: SparkPlan => Unit): Unit = {
+    // scalastyle:off
+    println(s"plan: $plan")
+    // scalastyle:on
     plan match {
       case _: CometScanExec | _: CometBatchScanExec | _: ShuffleQueryStageExec |
           _: AQEShuffleReadExec | _: CometShuffleExchangeExec | _: CometUnionExec |
           _: CometTakeOrderedAndProjectExec | _: CometCoalesceExec | _: ReusedExchangeExec |
-          _: CometBroadcastExchangeExec | _: BroadcastQueryStageExec |
-          _: CometRowToColumnarExec =>
+          _: CometBroadcastExchangeExec | _: BroadcastQueryStageExec | _: CometRowToColumnarExec |
+          _: CometPlaceholderRowExec =>
         func(plan)
       case _: CometPlan =>
         // Other Comet operators, continue to traverse the tree.
