@@ -188,6 +188,12 @@ class CometSparkSessionExtensions
               s"Partition schema $partitionSchema is not supported")
             withInfo(scanExec, Seq(info1, info2).flatten.mkString(","))
             scanExec
+
+          case rdd: RDDScanExec =>
+            // scalastyle:off
+            println(s"RDDScanExec: ${rdd.nodeName}")
+            // scalastyle:on
+            CometPlaceholderRowExec(plan, rdd)
         }
       }
     }
@@ -229,18 +235,18 @@ class CometSparkSessionExtensions
      * This rule traverses bottom-up from the original Spark plan and for each plan node, there
      * are a few cases to consider:
      *
-     * 1. The child(ren) of the current node `p` cannot be converted to native
-     *   In this case, we'll simply return the original Spark plan, since Comet native
-     *   execution cannot start from an arbitrary Spark operator (unless it is special node
-     *   such as scan or sink such as shuffle exchange, union etc., which are wrapped by
-     *   `CometScanWrapper` and `CometSinkPlaceHolder` respectively).
+     *   1. The child(ren) of the current node `p` cannot be converted to native In this case,
+     *      we'll simply return the original Spark plan, since Comet native execution cannot start
+     *      from an arbitrary Spark operator (unless it is special node such as scan or sink such
+     *      as shuffle exchange, union etc., which are wrapped by `CometScanWrapper` and
+     *      `CometSinkPlaceHolder` respectively).
      *
-     * 2. The child(ren) of the current node `p` can be converted to native
-     *   There are two sub-cases for this scenario: 1) This node `p` can also be converted to
-     *   native. In this case, we'll create a new native Comet operator for `p` and connect it with
-     *   its previously converted child(ren); 2) This node `p` cannot be converted to native. In
-     *   this case, similar to 1) above, we simply return `p` as it is. Its child(ren) would still
-     *   be native Comet operators.
+     * 2. The child(ren) of the current node `p` can be converted to native There are two
+     * sub-cases for this scenario: 1) This node `p` can also be converted to native. In this
+     * case, we'll create a new native Comet operator for `p` and connect it with its previously
+     * converted child(ren); 2) This node `p` cannot be converted to native. In this case, similar
+     * to 1) above, we simply return `p` as it is. Its child(ren) would still be native Comet
+     * operators.
      *
      * After this rule finishes, we'll do another pass on the final plan to convert all adjacent
      * Comet native operators into a single native execution block. Please see where
@@ -248,41 +254,20 @@ class CometSparkSessionExtensions
      *
      * Here are a few examples:
      *
-     *     Scan                       ======>             CometScan
-     *      |                                                |
-     *     Filter                                         CometFilter
-     *      |                                                |
-     *     HashAggregate                                  CometHashAggregate
-     *      |                                                |
-     *     Exchange                                       CometExchange
-     *      |                                                |
-     *     HashAggregate                                  CometHashAggregate
-     *      |                                                |
-     *     UnsupportedOperator                            UnsupportedOperator
+     * Scan ======> CometScan \| | Filter CometFilter \| | HashAggregate CometHashAggregate \| |
+     * Exchange CometExchange \| | HashAggregate CometHashAggregate \| | UnsupportedOperator
+     * UnsupportedOperator
      *
      * Native execution doesn't necessarily have to start from `CometScan`:
      *
-     *     Scan                       =======>            CometScan
-     *      |                                                |
-     *     UnsupportedOperator                            UnsupportedOperator
-     *      |                                                |
-     *     HashAggregate                                  HashAggregate
-     *      |                                                |
-     *     Exchange                                       CometExchange
-     *      |                                                |
-     *     HashAggregate                                  CometHashAggregate
-     *      |                                                |
-     *     UnsupportedOperator                            UnsupportedOperator
+     * Scan =======> CometScan \| | UnsupportedOperator UnsupportedOperator \| | HashAggregate
+     * HashAggregate \| | Exchange CometExchange \| | HashAggregate CometHashAggregate \| |
+     * UnsupportedOperator UnsupportedOperator
      *
      * A sink can also be Comet operators other than `CometExchange`, for instance `CometUnion`:
      *
-     *     Scan   Scan                =======>          CometScan CometScan
-     *      |      |                                       |         |
-     *     Filter Filter                                CometFilter CometFilter
-     *      |      |                                       |         |
-     *        Union                                         CometUnion
-     *          |                                               |
-     *        Project                                       CometProject
+     * Scan Scan =======> CometScan CometScan \| | | | Filter Filter CometFilter CometFilter \| |
+     * \| | Union CometUnion \| | Project CometProject
      */
     // spotless:on
     private def transform(plan: SparkPlan): SparkPlan = {
@@ -700,6 +685,12 @@ class CometSparkSessionExtensions
           withInfo(s, Seq(msg1, msg2, msg3).flatten.mkString(","))
           s
 
+        // case rdd: RDDScanExec =>
+        //   // scalastyle:off
+        //   println(s"RDDScanExec: ${rdd.nodeName}")
+        //   // scalastyle:on
+        //   CometPlaceholderRowExec(plan, rdd)
+
         case op =>
           // An operator that is not supported by Comet
           op match {
@@ -1001,7 +992,8 @@ object CometSparkSessionExtensions extends Logging {
   }
 
   def isCometScan(op: SparkPlan): Boolean = {
-    op.isInstanceOf[CometBatchScanExec] || op.isInstanceOf[CometScanExec]
+    op.isInstanceOf[CometBatchScanExec] || op.isInstanceOf[CometScanExec] || op
+      .isInstanceOf[CometPlaceholderRowExec]
   }
 
   private def shouldApplyRowToColumnar(conf: SQLConf, op: SparkPlan): Boolean = {
